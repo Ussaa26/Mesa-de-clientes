@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-from utils.data_loader import (
+from data_loader import (
     cargar_operaciones,
     cargar_clientes,
     cargar_ciiu,
