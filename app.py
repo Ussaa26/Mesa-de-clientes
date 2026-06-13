@@ -85,7 +85,7 @@ for tab, trader_id in zip(tabs, traders):
                 title="Operaciones: Entidad vs Mercado",
                 hole=0.4,
             )
-            st.plotly_chart(fig_entidad, use_container_width=True)
+            st.plotly_chart(fig_entidad, use_container_width=True, key=f"fig_entidad_{trader_id}")
         else:
             st.warning("No se encontró la columna 'Entidad' en los datos.")
 
@@ -108,7 +108,7 @@ for tab, trader_id in zip(tabs, traders):
                 title="Cantidad de operaciones por tipo (Lado)",
                 text="Cantidad",
             )
-            st.plotly_chart(fig_lado, use_container_width=True)
+            st.plotly_chart(fig_lado, use_container_width=True, key=f"fig_lado_{trader_id}")
         else:
             st.warning("No se encontró la columna 'Lado' en los datos.")
 
