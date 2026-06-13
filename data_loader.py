@@ -1,15 +1,17 @@
 import pandas as pd
 
 # -----------------------------------------------------------------
-# CONFIGURACIÓN DE FUENTES DE DATOS
+# CONFIGURACIÓN DE FUENTES DE DATOS (Google Drive)
 # -----------------------------------------------------------------
-# Por ahora, lee de la carpeta local /data
-# Cuando tengas el enlace público de OneDrive, reemplaza estas rutas
-# por las URLs de descarga directa (ej: "https://onedrive.live.com/download?...")
+# Cada link usa el formato: 
+# https://docs.google.com/spreadsheets/d/ID_DEL_ARCHIVO/export?format=xlsx
+#
+# Si el archivo se reemplaza en Drive (mismo ID), la app siempre
+# tomará la versión más reciente automáticamente.
 
-RUTA_OPERACIONES = "https://docs.google.com/spreadsheets/d/1w_SMaC88aWgV0ZMG6kI17qu8I6ToCvgV/edit?usp=sharing&ouid=109201281467813898095&rtpof=true&sd=true"
-RUTA_CLIENTES = "https://docs.google.com/spreadsheets/d/1-BoqjiefDtqQ0ILX-JFx1yZ30nHLmHQF/edit?usp=sharing&ouid=109201281467813898095&rtpof=true&sd=true"
-RUTA_CIIU = "https://docs.google.com/spreadsheets/d/10n3IllrQRzMWzOcAL1tZ_cmvjXIzAze4/edit?usp=sharing&ouid=109201281467813898095&rtpof=true&sd=true"
+RUTA_OPERACIONES = "https://docs.google.com/spreadsheets/d/1w_SMaC88aWgV0ZMG6kI17qu8I6ToCvgV/export?format=xlsx"
+RUTA_CLIENTES = "https://docs.google.com/spreadsheets/d/1-BoqjiefDtqQ0ILX-JFx1yZ30nHLmHQF/export?format=xlsx"
+RUTA_CIIU = "https://docs.google.com/spreadsheets/d/10n3IllrQRzMWzOcAL1tZ_cmvjXIzAze4/export?format=xlsx"
 
 
 def _normalizar_columnas(df: pd.DataFrame) -> pd.DataFrame:
@@ -46,10 +48,7 @@ def cruzar_bases(
 
     1) Operaciones <-> Clientes/BUC   por NIT (operaciones) = ID (clientes)
     2) Resultado    <-> CIIU          por CIIU_BUC (clientes) = COD_ACT_CIIU_NOCLI (ciiu)
-
-    Devuelve la base consolidada final, lista para usar en la app.
     """
-    # 1) Operaciones + Clientes
     df = df_operaciones.merge(
         df_clientes,
         left_on="NIT",
@@ -58,7 +57,6 @@ def cruzar_bases(
         suffixes=("", "_cliente"),
     )
 
-    # 2) + CIIU (agrega nombre del sector económico)
     df = df.merge(
         df_ciiu,
         left_on="CIIU_BUC",
@@ -81,10 +79,7 @@ def filtrar_por_trader(df: pd.DataFrame, trader_id, columna_trader: str = "Cod_C
 
 
 def cargar_datos_completos():
-    """
-    Función de conveniencia: carga las 3 bases, las cruza en cadena,
-    y devuelve el dataframe consolidado listo para usar en la app.
-    """
+    """Carga las 3 bases, las cruza en cadena, y devuelve el dataframe consolidado."""
     df_ops = cargar_operaciones()
     df_clientes = cargar_clientes()
     df_ciiu = cargar_ciiu()
