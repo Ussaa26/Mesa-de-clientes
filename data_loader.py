@@ -1,13 +1,9 @@
-import pandas as pd
 
-# -----------------------------------------------------------------
-# CONFIGURACIÓN DE FUENTES DE DATOS (Google Drive)
-# -----------------------------------------------------------------
-# Cada link usa el formato: 
-# https://docs.google.com/spreadsheets/d/ID_DEL_ARCHIVO/export?format=xlsx
-#
-# Si el archivo se reemplaza en Drive (mismo ID), la app siempre
-# tomará la versión más reciente automáticamente.
+import pandas as pd
+import gdown
+import os
+import tempfile
+
 
 RUTA_OPERACIONES = "https://docs.google.com/spreadsheets/d/1w_SMaC88aWgV0ZMG6kI17qu8I6ToCvgV/export?format=xlsx"
 RUTA_CLIENTES = "https://docs.google.com/spreadsheets/d/1-BoqjiefDtqQ0ILX-JFx1yZ30nHLmHQF/export?format=xlsx"
@@ -20,22 +16,35 @@ def _normalizar_columnas(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def cargar_operaciones(ruta: str = RUTA_OPERACIONES) -> pd.DataFrame:
+def _descargar_y_leer(file_id: str) -> pd.DataFrame:
+    """
+    Descarga un archivo de Google Drive por su ID usando gdown
+    (más confiable que leer directamente desde una URL para
+    archivos grandes), y lo carga como DataFrame.
+    """
+    carpeta_temp = tempfile.gettempdir()
+    ruta_destino = os.path.join(carpeta_temp, f"{file_id}.xlsx")
+
+    url = f"https://drive.google.com/uc?id={file_id}"
+    gdown.download(url, ruta_destino, quiet=True, fuzzy=True)
+
+    df = pd.read_excel(ruta_destino)
+    return _normalizar_columnas(df)
+
+
+def cargar_operaciones() -> pd.DataFrame:
     """Carga la base de operaciones (Fecha, NIT, Producto, Lado, Entidad, Moneda, Montos)."""
-    df = pd.read_excel(ruta)
-    return _normalizar_columnas(df)
+    return _descargar_y_leer(ID_OPERACIONES)
 
 
-def cargar_clientes(ruta: str = RUTA_CLIENTES) -> pd.DataFrame:
+def cargar_clientes() -> pd.DataFrame:
     """Carga la base de perfiles de clientes/BUC (ID, Segmento, Cod_Cartera, CIIU_BUC, etc.)."""
-    df = pd.read_excel(ruta)
-    return _normalizar_columnas(df)
+    return _descargar_y_leer(ID_CLIENTES)
 
 
-def cargar_ciiu(ruta: str = RUTA_CIIU) -> pd.DataFrame:
+def cargar_ciiu() -> pd.DataFrame:
     """Carga el catálogo CIIU (código -> nombre del sector económico)."""
-    df = pd.read_excel(ruta)
-    return _normalizar_columnas(df)
+    return _descargar_y_leer(ID_CIIU)
 
 
 def cruzar_bases(
