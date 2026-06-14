@@ -1,3 +1,5 @@
+
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -311,27 +313,25 @@ with columna_central:
             else:
                 texto_dias = f"{int(fila['Dias_Sin_Operar'])} días sin operar"
 
-            st.markdown(f"""
-            <div class="tarjeta-cliente">
-                <div class="tarjeta-encabezado">
-                    <span class="tarjeta-titulo">#{posicion + 1} · Cliente NIT {fila['NIT']}</span>
-                    <span class="tarjeta-puntaje">{fila['Puntaje']}<small>/100</small></span>
-                </div>
-
-                <div class="bloque-datos">
-                    <span>💰 Valor para Itaú: <b>{fila['Monto_Itau']:,.0f}</b></span>
-                    <span>🎯 Oportunidad en Mercado: <b>{fila['Monto_Mercado']:,.0f}</b></span>
-                    <span>⏱️ {texto_dias}</span>
-                    <span>🔄 {int(fila['N_Operaciones'])} operaciones históricas</span>
-                </div>
-
-                <div class="bloque-oferta">
-                    📞 <b>Qué ofrecer:</b> {fila['Sugerencia_Oferta']}
-                </div>
-
-                <div>{badges_html}</div>
-            </div>
-            """, unsafe_allow_html=True)
+            html_tarjeta = (
+                '<div class="tarjeta-cliente">'
+                '<div class="tarjeta-encabezado">'
+                f'<span class="tarjeta-titulo">#{posicion + 1} · Cliente NIT {fila["NIT"]}</span>'
+                f'<span class="tarjeta-puntaje">{fila["Puntaje"]}<small>/100</small></span>'
+                '</div>'
+                '<div class="bloque-datos">'
+                f'<span>💰 Valor para Itaú: <b>{fila["Monto_Itau"]:,.0f}</b></span>'
+                f'<span>🎯 Oportunidad en Mercado: <b>{fila["Monto_Mercado"]:,.0f}</b></span>'
+                f'<span>⏱️ {texto_dias}</span>'
+                f'<span>🔄 {int(fila["N_Operaciones"])} operaciones históricas</span>'
+                '</div>'
+                '<div class="bloque-oferta">'
+                f'📞 <b>Qué ofrecer:</b> {fila["Sugerencia_Oferta"]}'
+                '</div>'
+                f'<div>{badges_html}</div>'
+                '</div>'
+            )
+            st.markdown(html_tarjeta, unsafe_allow_html=True)
 
     st.markdown("---")
 
