@@ -39,7 +39,7 @@ def _descargar_y_leer(file_id: str, nombre: str = "archivo") -> pd.DataFrame:
 
     url = f"https://drive.google.com/uc?id={file_id}"
 
-    resultado = gdown.download(url, ruta_destino, quiet=False, fuzzy=True)
+    resultado = gdown.download(url, ruta_destino, quiet=False)
 
     if resultado is None:
         raise RuntimeError(
