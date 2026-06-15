@@ -1,26 +1,4 @@
-"""
-=============================================================================
- MESA DE CLIENTES — ITAÚ COLOMBIA
- Dashboard de priorización diaria de clientes para traders
-=============================================================================
 
-ESTRUCTURA DE ESTE ARCHIVO (cada sección está marcada y separada):
-
-    1. CONFIGURACIÓN DE PÁGINA Y ESTILOS
-    2. CARGA DE DATOS
-    3. SIDEBAR — selección de trader (con buscador)
-    4. RESUMEN GENERAL DE LA CARTERA (métricas rápidas + explicación)
-    5. LISTA DE PRIORIZACIÓN — a quién llamar y en qué orden
-    6. GRÁFICO — producto más usado por cliente
-    7. RANKINGS TOP N — clientes más activos por moneda y por producto
-    8. BUSCADOR DE CLIENTE — consultar un cliente específico de la cartera
-    9. DETALLE DE OPERACIONES (tabla completa, opcional)
-
-La lógica de negocio (cálculo de puntaje, recomendaciones de oferta,
-necesidades) vive en priorizacion.py — este archivo solo se encarga
-de mostrarla de forma clara.
-=============================================================================
-"""
 
 import streamlit as st
 import pandas as pd
@@ -558,6 +536,7 @@ with columna_central:
             else:
                 ranking_moneda_mostrar = ranking_moneda.rename(columns={
                     "NIT": "Cliente (NIT)",
+                    "Moneda": "Moneda",
                     "N_Operaciones": "N° de operaciones",
                 })
                 st.dataframe(ranking_moneda_mostrar, use_container_width=True, hide_index=True)
@@ -588,6 +567,7 @@ with columna_central:
             else:
                 ranking_producto_mostrar = ranking_producto.rename(columns={
                     "NIT": "Cliente (NIT)",
+                    "Producto": "Producto",
                     "N_Operaciones": "N° de operaciones",
                 })
                 st.dataframe(ranking_producto_mostrar, use_container_width=True, hide_index=True)
