@@ -8,7 +8,7 @@ Layout basado en el mockup:
   - Métricas en franja superior
   - Columna izquierda: lista de priorización con scroll
   - Columna derecha: tabs (Producto más usado / Top clientes)
-  - Sección inferior colapsada: buscador + detalle de operaciones
+  - Sección inferior colapsada: buscador (con gráficas) + detalle
 =============================================================================
 """
 
@@ -61,10 +61,7 @@ html, body, [class*="css"] {{
 /* ── Ocultar sidebar ── */
 section[data-testid="stSidebar"] {{ display: none; }}
 
-/* ── Padding superior del contenedor ──
-   IMPORTANTE: se deja un margen (3rem) para que el topbar
-   (incluyendo el selectbox del trader) no quede tapado por
-   la barra de herramientas propia de Streamlit (Fork / GitHub / menú). */
+/* ── Padding superior del contenedor ── */
 .block-container {{
     padding-top: 3rem !important;
     padding-bottom: 1rem !important;
@@ -72,15 +69,6 @@ section[data-testid="stSidebar"] {{ display: none; }}
 }}
 
 /* ── Topbar ── */
-.topbar {{
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 20px;
-    border-bottom: 1px solid {COLOR_GRIS_CLARO};
-    background: #FFFFFF;
-    margin-bottom: 0;
-}}
 .topbar-logo {{
     font-size: 15px;
     font-weight: 700;
@@ -255,6 +243,17 @@ div[data-testid="metric-container"] [data-testid="stMetricValue"] {{
     color: #1A1A1A;
 }}
 .ficha-sector b {{ color: {COLOR_NARANJA}; }}
+
+/* ── Mini gráficas del cliente seleccionado ── */
+.mini-chart-label {{
+    font-size: 11px;
+    font-weight: 600;
+    color: {COLOR_GRIS};
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    margin: 4px 0 2px 0;
+    text-align: center;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -522,7 +521,7 @@ with col_der:
 
 
 # =============================================================================
-# 7. SECCIÓN INFERIOR COLAPSADA — buscador + detalle de operaciones
+# 7. SECCIÓN INFERIOR COLAPSADA — buscador (con gráficas) + detalle
 # =============================================================================
 
 st.markdown(
@@ -589,6 +588,142 @@ with st.expander("🔍 Buscar cliente específico / Ver detalle de operaciones")
                     '</div>',
                     unsafe_allow_html=True,
                 )
+
+                # ── Mini gráficas del cliente seleccionado ──
+                # Producto / Moneda / Itaú vs Mercado, en 3 columnas
+                # compactas, usando los mismos datos ya filtrados
+                # (ops_cliente) y calculados (datos).
+                g1, g2, g3 = st.columns(3)
+
+                # -- Gráfico 1: distribución por Producto --
+                with g1:
+                    st.markdown(
+                        '<div class="mini-chart-label">Producto</div>',
+                        unsafe_allow_html=True,
+                    )
+                    if "Producto" in ops_cliente.columns and ops_cliente["Producto"].notna().any():
+                        conteo_prod = (
+                            ops_cliente["Producto"]
+                            .value_counts()
+                            .reset_index()
+                        )
+                        conteo_prod.columns = ["Producto", "Conteo"]
+
+                        fig_prod = px.pie(
+                            conteo_prod,
+                            names="Producto",
+                            values="Conteo",
+                            hole=0.55,
+                            color_discrete_sequence=[COLOR_NARANJA, COLOR_NARANJA_CLARO, COLOR_GRIS],
+                        )
+                        fig_prod.update_traces(
+                            textinfo="percent",
+                            textfont_size=10,
+                        )
+                        fig_prod.update_layout(
+                            height=180,
+                            margin=dict(l=0, r=0, t=0, b=0),
+                            showlegend=True,
+                            legend=dict(
+                                orientation="h", yanchor="top", y=-0.05,
+                                font=dict(size=8),
+                            ),
+                            paper_bgcolor="#FFFFFF",
+                        )
+                        st.plotly_chart(
+                            fig_prod, use_container_width=True,
+                            key=f"prod_pie_{trader_seleccionado}_{nit_buscado}",
+                        )
+                    else:
+                        st.caption("Sin datos.")
+
+                # -- Gráfico 2: distribución por Moneda --
+                with g2:
+                    st.markdown(
+                        '<div class="mini-chart-label">Moneda</div>',
+                        unsafe_allow_html=True,
+                    )
+                    if "Moneda" in ops_cliente.columns and ops_cliente["Moneda"].notna().any():
+                        conteo_moneda = (
+                            ops_cliente["Moneda"]
+                            .value_counts()
+                            .reset_index()
+                        )
+                        conteo_moneda.columns = ["Moneda", "Conteo"]
+
+                        fig_moneda = px.pie(
+                            conteo_moneda,
+                            names="Moneda",
+                            values="Conteo",
+                            hole=0.55,
+                            color_discrete_sequence=[COLOR_NARANJA, COLOR_NARANJA_CLARO, COLOR_GRIS],
+                        )
+                        fig_moneda.update_traces(
+                            textinfo="percent",
+                            textfont_size=10,
+                        )
+                        fig_moneda.update_layout(
+                            height=180,
+                            margin=dict(l=0, r=0, t=0, b=0),
+                            showlegend=True,
+                            legend=dict(
+                                orientation="h", yanchor="top", y=-0.05,
+                                font=dict(size=8),
+                            ),
+                            paper_bgcolor="#FFFFFF",
+                        )
+                        st.plotly_chart(
+                            fig_moneda, use_container_width=True,
+                            key=f"moneda_pie_{trader_seleccionado}_{nit_buscado}",
+                        )
+                    else:
+                        st.caption("Sin datos.")
+
+                # -- Gráfico 3: Itaú vs Mercado (montos) --
+                with g3:
+                    st.markdown(
+                        '<div class="mini-chart-label">Itaú vs Mercado</div>',
+                        unsafe_allow_html=True,
+                    )
+                    monto_itau_cli    = float(datos["Monto_Itau"])
+                    monto_mercado_cli = float(datos["Monto_Mercado"])
+
+                    if (monto_itau_cli + monto_mercado_cli) > 0:
+                        df_itau_mercado = pd.DataFrame({
+                            "Canal": ["Itaú", "Mercado"],
+                            "Monto": [monto_itau_cli, monto_mercado_cli],
+                        })
+                        fig_canal = px.pie(
+                            df_itau_mercado,
+                            names="Canal",
+                            values="Monto",
+                            hole=0.55,
+                            color="Canal",
+                            color_discrete_map={
+                                "Itaú": COLOR_NARANJA,
+                                "Mercado": COLOR_GRIS,
+                            },
+                        )
+                        fig_canal.update_traces(
+                            textinfo="percent",
+                            textfont_size=10,
+                        )
+                        fig_canal.update_layout(
+                            height=180,
+                            margin=dict(l=0, r=0, t=0, b=0),
+                            showlegend=True,
+                            legend=dict(
+                                orientation="h", yanchor="top", y=-0.05,
+                                font=dict(size=8),
+                            ),
+                            paper_bgcolor="#FFFFFF",
+                        )
+                        st.plotly_chart(
+                            fig_canal, use_container_width=True,
+                            key=f"canal_pie_{trader_seleccionado}_{nit_buscado}",
+                        )
+                    else:
+                        st.caption("Sin montos registrados.")
 
                 with st.expander("Ver operaciones de este cliente"):
                     st.dataframe(ops_cliente, use_container_width=True)
