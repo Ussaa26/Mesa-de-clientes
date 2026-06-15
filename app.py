@@ -12,7 +12,13 @@ from data_loader import (
     obtener_lista_traders,
     filtrar_por_trader,
 )
-from priorizacion import generar_priorizacion
+from priorizacion import (
+    generar_priorizacion,
+    calcular_metricas_por_cliente,
+    calcular_recomendacion_oferta,
+    texto_sugerencia_oferta,
+    obtener_sector_economico,
+)
 
 
 # =============================================================================
@@ -148,6 +154,17 @@ st.markdown(f"""
         color: {COLOR_GRIS};
         margin-bottom: 16px;
     }}
+
+    /* ---------- Caja de ayuda / explicación ---------- */
+    .caja-ayuda {{
+        background: #FFF6EE;
+        border: 1px solid #FFD9B8;
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin: 10px 0 4px 0;
+        font-size: 12.5px;
+        color: #5A5A5A;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -277,6 +294,18 @@ with columna_central:
     col3.metric("Monto generado para Itaú", f"{monto_total_itau:,.0f}")
     col4.metric("Oportunidad en Mercado", f"{oportunidad_total:,.0f}")
 
+    st.markdown(
+        '<div class="caja-ayuda">'
+        'ℹ️ <b>¿Qué significan estos valores?</b> '
+        '"Monto generado para Itaú" es la suma de lo que todos los '
+        'clientes de esta cartera ya movieron CON Itaú. '
+        '"Oportunidad en Mercado" es la suma de lo que esos mismos '
+        'clientes movieron con OTROS BANCOS — es decir, negocio que '
+        'Itaú podría intentar capturar.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
     st.markdown("---")
 
     # =========================================================================
@@ -324,6 +353,9 @@ with columna_central:
                 f'<span>🎯 Oportunidad en Mercado: <b>{fila["Monto_Mercado"]:,.0f}</b></span>'
                 f'<span>⏱️ {texto_dias}</span>'
                 f'<span>🔄 {int(fila["N_Operaciones"])} operaciones históricas</span>'
+                '</div>'
+                '<div class="bloque-datos">'
+                f'<span>🏢 Sector económico: <b>{fila["Sector_Economico"]}</b></span>'
                 '</div>'
                 '<div class="bloque-oferta">'
                 f'📞 <b>Qué ofrecer:</b> {fila["Sugerencia_Oferta"]}'
@@ -397,7 +429,76 @@ with columna_central:
     st.markdown("---")
 
     # =========================================================================
-    # 7. DETALLE DE OPERACIONES
+    # 7. BUSCADOR DE CLIENTE — consultar un cliente específico de la cartera
+    # =========================================================================
+
+    st.markdown(
+        '<div class="titulo-seccion">🔍 Buscar un cliente de tu cartera</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="subtitulo-seccion">'
+        'Útil cuando no vas a contactar a un cliente hoy, pero quieres '
+        'consultar su información: historial, sector, moneda y producto '
+        'más usados.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    lista_nits_cartera = sorted(df_trader["NIT"].dropna().unique().tolist())
+
+    nit_buscado = st.selectbox(
+        "Selecciona un cliente (NIT)",
+        options=["-- Selecciona un cliente --"] + lista_nits_cartera,
+        label_visibility="collapsed",
+    )
+
+    if nit_buscado != "-- Selecciona un cliente --":
+        ops_cliente = df_trader[df_trader["NIT"] == nit_buscado]
+
+        # Calcular las mismas métricas que en la lista de priorización,
+        # pero solo para este cliente
+        metricas_cliente = calcular_metricas_por_cliente(ops_cliente)
+        recomendacion = calcular_recomendacion_oferta(df_trader, nit_buscado)
+        sugerencia = texto_sugerencia_oferta(recomendacion)
+        sector = obtener_sector_economico(df_trader, nit_buscado)
+
+        if not metricas_cliente.empty:
+            datos = metricas_cliente.iloc[0]
+
+            if datos["Dias_Sin_Operar"] >= 999:
+                texto_dias_cliente = "Sin registro de fecha"
+            else:
+                texto_dias_cliente = f"{int(datos['Dias_Sin_Operar'])} días sin operar"
+
+            html_resultado = (
+                '<div class="tarjeta-cliente">'
+                '<div class="tarjeta-encabezado">'
+                f'<span class="tarjeta-titulo">Cliente NIT {nit_buscado}</span>'
+                '</div>'
+                '<div class="bloque-datos">'
+                f'<span>💰 Valor para Itaú: <b>{datos["Monto_Itau"]:,.0f}</b></span>'
+                f'<span>🎯 Monto en Mercado: <b>{datos["Monto_Mercado"]:,.0f}</b></span>'
+                f'<span>⏱️ {texto_dias_cliente}</span>'
+                f'<span>🔄 {int(datos["N_Operaciones"])} operaciones históricas</span>'
+                '</div>'
+                '<div class="bloque-datos">'
+                f'<span>🏢 Sector económico: <b>{sector}</b></span>'
+                '</div>'
+                '<div class="bloque-oferta">'
+                f'📞 <b>Historial de patrones:</b> {sugerencia}'
+                '</div>'
+                '</div>'
+            )
+            st.markdown(html_resultado, unsafe_allow_html=True)
+
+            with st.expander("Ver todas las operaciones de este cliente"):
+                st.dataframe(ops_cliente, use_container_width=True)
+
+    st.markdown("---")
+
+    # =========================================================================
+    # 8. DETALLE DE OPERACIONES
     # =========================================================================
 
     with st.expander("📂 Ver detalle completo de operaciones de esta cartera"):
