@@ -1,70 +1,4 @@
-"""
-Módulo de priorización y recomendaciones — Mesa de Clientes Itaú
-==================================================================
 
-Este archivo contiene TODA la lógica de negocio: cómo se calcula
-el puntaje de prioridad de cada cliente y qué se le recomienda
-ofrecer al trader. Está separado de la app (interfaz visual) para
-que sea fácil de leer, ajustar y validar con el banco sin tocar
-el diseño.
-
-
-CÓMO FUNCIONA EL MODELO DE PRIORIDAD
--------------------------------------
-Cada cliente recibe un puntaje de 0 a 100, calculado a partir de
-4 factores. Cada factor se "normaliza" (se lleva a una escala de
-0 a 1 comparando contra los demás clientes de la misma cartera) y
-luego se multiplica por su peso:
-
-    Factor                          Peso    Qué mide
-    ------------------------------  -----   ----------------------------------
-    Oportunidad en Mercado           30%    Dinero que el cliente mueve con
-                                             la competencia (negocio a recuperar)
-
-    Valor actual para Itaú           30%    Dinero que el cliente YA mueve
-                                             con Itaú (no perder este cliente)
-
-    Días sin operar                  20%    Riesgo de inactividad
-
-    N° de operaciones (fidelización) 20%    Qué tan frecuente es el cliente
-
-    PUNTAJE FINAL = suma de los 4 factores ponderados (0-100)
-
-Los clientes se ordenan de mayor a menor puntaje: el #1 es a quien
-el trader debe llamar primero.
-
-
-CÓMO FUNCIONA LA RECOMENDACIÓN DE OFERTA
--------------------------------------------
-Para cada cliente, se revisa su historial de operaciones y se
-identifican sus patrones más frecuentes:
-
-    1. Producto que más usa   -> SPOT / FORWARD / NEXT DAY
-    2. Lado que más usa       -> el cliente más COMPRA o más VENDE
-    3. Moneda que más usa     -> USD / EUR / etc.
-
-Con esos datos se construye una frase de sugerencia, por ejemplo:
-
-    "FORWARD (80%) · Banco Vende (75%) · Moneda: USD (90%)"
-
-Esto le dice al trader, de un vistazo, QUÉ ofrecer cuando llame.
-
-
-CÓMO SE MUESTRA EL SECTOR ECONÓMICO (CIIU)
---------------------------------------------
-A diferencia del producto/lado/moneda (que son patrones calculados),
-el sector económico NO se infiere: se toma directamente del cruce
-con la tabla CIIU que ya viene en los datos. Es información de
-contexto para que el trader use su propio criterio comercial.
-
-
-NOTA IMPORTANTE
-----------------
-Los pesos (30/30/20/20) y los umbrales usados en las "necesidades
-inferidas" son una PROPUESTA INICIAL razonable, pensada para que la
-app funcione desde ya. Deben validarse con el equipo de la Mesa de
-Clientes y ajustarse si el banco define otros criterios.
-"""
 
 import pandas as pd
 
@@ -342,22 +276,27 @@ def ranking_clientes_por_moneda(df_trader: pd.DataFrame, monedas: list, top_n: i
     Devuelve el ranking de los clientes (NIT) con más operaciones en
     las monedas indicadas (ej: ['USD/COP', 'EUR/COP']).
 
-    Cuenta, para cada cliente, cuántas operaciones tiene en CUALQUIERA
-    de las monedas de la lista, y devuelve el Top N ordenado de mayor
-    a menor.
+    A diferencia de un conteo simple, aquí se agrupa por
+    (Cliente, Moneda), de modo que cada fila del ranking indica
+    CLARAMENTE en qué moneda específica tiene esas operaciones
+    ese cliente. Si un cliente opera en varias monedas, aparecerá
+    una fila por cada combinación Cliente-Moneda.
 
-    Columnas devueltas: NIT, N_Operaciones
+    Columnas devueltas: NIT, Moneda, N_Operaciones
+    Ordenado de mayor a menor N_Operaciones (Top N).
     """
+    columnas_vacias = ["NIT", "Moneda", "N_Operaciones"]
+
     if df_trader.empty or "Moneda" not in df_trader.columns:
-        return pd.DataFrame(columns=["NIT", "N_Operaciones"])
+        return pd.DataFrame(columns=columnas_vacias)
 
     filtrado = df_trader[df_trader["Moneda"].isin(monedas)]
 
     if filtrado.empty:
-        return pd.DataFrame(columns=["NIT", "N_Operaciones"])
+        return pd.DataFrame(columns=columnas_vacias)
 
     ranking = (
-        filtrado.groupby("NIT")
+        filtrado.groupby(["NIT", "Moneda"])
         .size()
         .reset_index(name="N_Operaciones")
         .sort_values("N_Operaciones", ascending=False)
@@ -373,22 +312,27 @@ def ranking_clientes_por_producto(df_trader: pd.DataFrame, productos: list, top_
     Devuelve el ranking de los clientes (NIT) con más operaciones en
     los productos indicados (ej: ['SPOT', 'FORWARD']).
 
-    Cuenta, para cada cliente, cuántas operaciones tiene en CUALQUIERA
-    de los productos de la lista, y devuelve el Top N ordenado de mayor
-    a menor.
+    A diferencia de un conteo simple, aquí se agrupa por
+    (Cliente, Producto), de modo que cada fila del ranking indica
+    CLARAMENTE en qué producto específico tiene esas operaciones
+    ese cliente. Si un cliente opera en varios productos, aparecerá
+    una fila por cada combinación Cliente-Producto.
 
-    Columnas devueltas: NIT, N_Operaciones
+    Columnas devueltas: NIT, Producto, N_Operaciones
+    Ordenado de mayor a menor N_Operaciones (Top N).
     """
+    columnas_vacias = ["NIT", "Producto", "N_Operaciones"]
+
     if df_trader.empty or "Producto" not in df_trader.columns:
-        return pd.DataFrame(columns=["NIT", "N_Operaciones"])
+        return pd.DataFrame(columns=columnas_vacias)
 
     filtrado = df_trader[df_trader["Producto"].isin(productos)]
 
     if filtrado.empty:
-        return pd.DataFrame(columns=["NIT", "N_Operaciones"])
+        return pd.DataFrame(columns=columnas_vacias)
 
     ranking = (
-        filtrado.groupby("NIT")
+        filtrado.groupby(["NIT", "Producto"])
         .size()
         .reset_index(name="N_Operaciones")
         .sort_values("N_Operaciones", ascending=False)
