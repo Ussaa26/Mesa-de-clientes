@@ -1,4 +1,5 @@
 
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -343,37 +344,34 @@ with columna_central:
     col1, col2, col3, col4 = st.columns(4)
 
     if not df_priorizacion.empty:
-        # Un cliente "a priorizar hoy" es aquel que tiene AL MENOS UNA
-        # alerta real (Reactivación, Oportunidad, etc.) — no solo
-        # "Sin alertas urgentes". Esto se basa en condiciones absolutas
-        # (días sin operar, % en Mercado, etc.), por lo que varía de
-        # forma natural según el tamaño y comportamiento real de cada
-        # cartera, en vez de depender del puntaje normalizado.
-        def _tiene_alerta_real(lista_necesidades):
-            tipos = [tipo for _, tipo in lista_necesidades]
-            return any(t != "neutral" for t in tipos)
-
-        clientes_a_llamar_hoy = int(
-            df_priorizacion["Necesidades"].apply(_tiene_alerta_real).sum()
-        )
         monto_total_itau = df_priorizacion["Monto_Itau"].sum()
         oportunidad_total = df_priorizacion["Monto_Mercado"].sum()
+
+        # El "cliente top de hoy" es simplemente el #1 de la lista de
+        # priorización (mayor puntaje). No se usa un umbral fijo ni un
+        # conteo de "cuántos son urgentes" -- la urgencia es un espectro
+        # continuo (0-100) y la lista completa ya refleja el orden real.
+        cliente_top_nit = df_priorizacion.iloc[0]["NIT"]
+        cliente_top_puntaje = df_priorizacion.iloc[0]["Puntaje"]
     else:
-        clientes_a_llamar_hoy = 0
         monto_total_itau = 0
         oportunidad_total = 0
+        cliente_top_nit = "—"
+        cliente_top_puntaje = 0
 
     col1.metric("Clientes en cartera", df_trader["NIT"].nunique())
-    col2.metric("Clientes a priorizar hoy", clientes_a_llamar_hoy)
+    col2.metric("Cliente top de hoy", f"NIT {cliente_top_nit}", f"Puntaje {cliente_top_puntaje}/100")
     col3.metric("Monto generado para Itaú", f"{monto_total_itau:,.0f}")
     col4.metric("Oportunidad en Mercado", f"{oportunidad_total:,.0f}")
 
     st.markdown(
         '<div class="caja-ayuda">'
         'ℹ️ <b>¿Qué significan estos valores?</b> '
-        '"Clientes a priorizar hoy" son los que tienen al menos una '
-        'alerta activa (reactivación, oportunidad en Mercado, cliente '
-        'nuevo, etc.). '
+        '"Cliente top de hoy" es el cliente con mayor puntaje de '
+        'prioridad — empieza por aquí. El puntaje combina oportunidad '
+        'en Mercado, valor actual para Itaú, días sin operar y '
+        'fidelización (frecuencia de operación), por lo que un cliente '
+        'muy activo puede ser tan prioritario como uno inactivo. '
         '"Monto generado para Itaú" es la suma de lo que todos los '
         'clientes de esta cartera ya movieron CON Itaú. '
         '"Oportunidad en Mercado" es la suma de lo que esos mismos '
