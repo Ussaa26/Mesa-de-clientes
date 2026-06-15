@@ -37,16 +37,25 @@ el trader debe llamar primero.
 CÓMO FUNCIONA LA RECOMENDACIÓN DE OFERTA
 -------------------------------------------
 Para cada cliente, se revisa su historial de operaciones y se
-identifican sus DOS patrones más frecuentes:
+identifican sus patrones más frecuentes:
 
     1. Producto que más usa   -> SPOT / FORWARD / NEXT DAY
     2. Lado que más usa       -> el cliente más COMPRA o más VENDE
+    3. Moneda que más usa     -> USD / EUR / etc.
 
-Con esos dos datos se construye una frase de sugerencia, por ejemplo:
+Con esos datos se construye una frase de sugerencia, por ejemplo:
 
-    "Sugerencia: FORWARD - el cliente suele VENDER (80% histórico)"
+    "FORWARD (80%) · Banco Vende (75%) · Moneda: USD (90%)"
 
 Esto le dice al trader, de un vistazo, QUÉ ofrecer cuando llame.
+
+
+CÓMO SE MUESTRA EL SECTOR ECONÓMICO (CIIU)
+--------------------------------------------
+A diferencia del producto/lado/moneda (que son patrones calculados),
+el sector económico NO se infiere: se toma directamente del cruce
+con la tabla CIIU que ya viene en los datos. Es información de
+contexto para que el trader use su propio criterio comercial.
 
 
 NOTA IMPORTANTE
@@ -189,7 +198,8 @@ def calcular_recomendacion_oferta(df_trader: pd.DataFrame, nit) -> dict:
 
         - Producto más usado   (ej: SPOT, FORWARD, NEXT DAY)
         - Lado más usado        (ej: BANCO COMPRA / BANCO VENDE)
-        - % de veces que ese patrón se repite
+        - Moneda más usada      (ej: USD, EUR)
+        - % de veces que cada patrón se repite
 
     Devuelve un diccionario con esa información, listo para
     mostrar como sugerencia al trader.
@@ -201,6 +211,8 @@ def calcular_recomendacion_oferta(df_trader: pd.DataFrame, nit) -> dict:
         "pct_producto": 0,
         "lado_frecuente": None,
         "pct_lado": 0,
+        "moneda_frecuente": None,
+        "pct_moneda": 0,
     }
 
     if ops_cliente.empty:
@@ -220,6 +232,13 @@ def calcular_recomendacion_oferta(df_trader: pd.DataFrame, nit) -> dict:
             resultado["lado_frecuente"] = conteo_lado.index[0]
             resultado["pct_lado"] = round(conteo_lado.iloc[0] / len(ops_cliente) * 100, 0)
 
+    # --- Moneda más frecuente ---
+    if "Moneda" in ops_cliente.columns:
+        conteo_moneda = ops_cliente["Moneda"].value_counts()
+        if not conteo_moneda.empty:
+            resultado["moneda_frecuente"] = conteo_moneda.index[0]
+            resultado["pct_moneda"] = round(conteo_moneda.iloc[0] / len(ops_cliente) * 100, 0)
+
     return resultado
 
 
@@ -228,16 +247,18 @@ def texto_sugerencia_oferta(recomendacion: dict) -> str:
     Convierte el diccionario de recomendación en una frase legible
     para el trader, por ejemplo:
 
-        "FORWARD · el cliente suele VENDER (80% de sus operaciones)"
+        "FORWARD · el cliente suele VENDER · Moneda más usada: USD (90%)"
 
     Si no hay suficiente información, devuelve un mensaje neutro.
     """
     producto = recomendacion.get("producto_frecuente")
     lado = recomendacion.get("lado_frecuente")
+    moneda = recomendacion.get("moneda_frecuente")
     pct_producto = recomendacion.get("pct_producto", 0)
     pct_lado = recomendacion.get("pct_lado", 0)
+    pct_moneda = recomendacion.get("pct_moneda", 0)
 
-    if not producto and not lado:
+    if not producto and not lado and not moneda:
         return "Sin historial suficiente para sugerir una oferta."
 
     partes = []
@@ -245,6 +266,8 @@ def texto_sugerencia_oferta(recomendacion: dict) -> str:
         partes.append(f"{producto} ({pct_producto:.0f}% de sus operaciones)")
     if lado:
         partes.append(f"{lado.title()} ({pct_lado:.0f}% de sus operaciones)")
+    if moneda:
+        partes.append(f"Moneda: {moneda} ({pct_moneda:.0f}% de sus operaciones)")
 
     return " · ".join(partes)
 
@@ -252,6 +275,38 @@ def texto_sugerencia_oferta(recomendacion: dict) -> str:
 # ===================================================================
 # 4. NECESIDADES / ALERTAS DEL CLIENTE
 # ===================================================================
+
+def obtener_sector_economico(df_trader: pd.DataFrame, nit) -> str:
+    """
+    Devuelve el nombre del sector económico (CIIU) del cliente,
+    tal como viene en los datos cruzados con la tabla CIIU.
+
+    Este dato es informativo: muestra al trader la actividad
+    económica real del cliente (no es una inferencia del sistema),
+    para que el trader use su propio criterio.
+
+    Si no hay información disponible, devuelve "No disponible".
+    """
+    ops_cliente = df_trader[df_trader["NIT"] == nit]
+
+    if ops_cliente.empty:
+        return "No disponible"
+
+    # Buscar la primera columna candidata que tenga el nombre del sector.
+    # El nombre exacto puede variar según cómo venga la tabla CIIU
+    # (ej: "Descripcion", "Nombre_CIIU", "Actividad_Economica", etc.)
+    columnas_candidatas = [
+        col for col in ops_cliente.columns
+        if "ciiu" in col.lower() or "actividad" in col.lower() or "descripcion" in col.lower()
+    ]
+
+    for col in columnas_candidatas:
+        valor = ops_cliente[col].dropna()
+        if not valor.empty and str(valor.iloc[0]).strip().lower() not in ("nan", "sin informacion", "sin información", ""):
+            return str(valor.iloc[0])
+
+    return "No disponible"
+
 
 def inferir_necesidades(fila_metricas: pd.Series) -> list:
     """
@@ -303,16 +358,19 @@ def generar_priorizacion(df_trader: pd.DataFrame) -> pd.DataFrame:
     df_metricas = calcular_metricas_por_cliente(df_trader)
     df_puntaje = calcular_puntaje_prioridad(df_metricas)
 
-    # Agregar recomendación de oferta y necesidades, cliente por cliente
+    # Agregar recomendación de oferta, necesidades y sector económico
     sugerencias = []
     necesidades_lista = []
+    sectores = []
 
     for _, fila in df_puntaje.iterrows():
         recomendacion = calcular_recomendacion_oferta(df_trader, fila["NIT"])
         sugerencias.append(texto_sugerencia_oferta(recomendacion))
         necesidades_lista.append(inferir_necesidades(fila))
+        sectores.append(obtener_sector_economico(df_trader, fila["NIT"]))
 
     df_puntaje["Sugerencia_Oferta"] = sugerencias
     df_puntaje["Necesidades"] = necesidades_lista
+    df_puntaje["Sector_Economico"] = sectores
 
     return df_puntaje
