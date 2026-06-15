@@ -61,9 +61,12 @@ html, body, [class*="css"] {{
 /* ── Ocultar sidebar ── */
 section[data-testid="stSidebar"] {{ display: none; }}
 
-/* ── Quitar padding superior de Streamlit ── */
+/* ── Padding superior del contenedor ──
+   IMPORTANTE: se deja un margen (3rem) para que el topbar
+   (incluyendo el selectbox del trader) no quede tapado por
+   la barra de herramientas propia de Streamlit (Fork / GitHub / menú). */
 .block-container {{
-    padding-top: 0 !important;
+    padding-top: 3rem !important;
     padding-bottom: 1rem !important;
     max-width: 100% !important;
 }}
